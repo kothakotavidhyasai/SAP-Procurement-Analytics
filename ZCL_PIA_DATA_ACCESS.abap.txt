@@ -1,0 +1,125 @@
+CLASS zcl_pia_data_access DEFINITION
+  PUBLIC
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    " Type for Procurement Report
+    TYPES: BEGIN OF ty_po_data,
+             ebeln   TYPE zpia_po_header-ebeln,
+             ebelp   TYPE zpia_po_item-ebelp,
+             bukrs   TYPE zpia_po_header-bukrs,
+             bedat   TYPE zpia_po_header-bedat,
+             lifnr   TYPE zpia_po_header-lifnr,
+             name1   TYPE zpia_vendor-name1,
+             matnr   TYPE zpia_po_item-matnr,
+             maktx   TYPE zpia_material-maktx,
+             menge   TYPE zpia_po_item-menge,
+             netpr   TYPE zpia_po_item-netpr,
+             netwr   TYPE zpia_po_item-netwr,
+           END OF ty_po_data.
+
+    TYPES: tt_po_data TYPE TABLE OF ty_po_data.
+
+    " Type for Inventory Stock Report
+    TYPES: BEGIN OF ty_stock_data,
+             mblnr   TYPE zpia_stock_doc-mblnr,
+             mjahr   TYPE zpia_stock_doc-mjahr,
+             zeile   TYPE zpia_stock_doc-zeile,
+             bwart   TYPE zpia_stock_doc-bwart,
+             matnr   TYPE zpia_stock_doc-matnr,
+             maktx   TYPE zpia_material-maktx,
+             werks   TYPE zpia_stock_doc-werks,
+             menge   TYPE zpia_stock_doc-menge,
+             budat   TYPE zpia_stock_doc-budat,
+             shkzg   TYPE zpia_stock_doc-shkzg,
+           END OF ty_stock_data.
+
+    TYPES: tt_stock_data TYPE TABLE OF ty_stock_data.
+
+    " Range Types for Select-Options
+    TYPES: tt_ebeln_range TYPE RANGE OF zpia_po_header-ebeln,
+           tt_matnr_range TYPE RANGE OF zpia_stock_doc-matnr.
+
+    " Method Definitions
+    METHODS get_purchase_orders
+      IMPORTING
+        it_ebeln TYPE tt_ebeln_range
+      EXPORTING
+        et_po_data TYPE tt_po_data.
+
+    METHODS get_stock_movements
+      IMPORTING
+        it_matnr TYPE tt_matnr_range
+      EXPORTING
+        et_stock_data TYPE tt_stock_data.
+
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS ZCL_PIA_DATA_ACCESS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PIA_DATA_ACCESS->GET_PURCHASE_ORDERS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_EBELN                       TYPE        TT_EBELN_RANGE
+* | [<---] ET_PO_DATA                     TYPE        TT_PO_DATA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_purchase_orders.
+    CLEAR et_po_data.
+
+    " Fetch data using classic Open SQL syntax (no commas, no @)
+    SELECT h~ebeln
+           i~ebelp
+           h~bukrs
+           h~bedat
+           h~lifnr
+           v~name1
+           i~matnr
+           m~maktx
+           i~menge
+           i~netpr
+           i~netwr
+      INTO TABLE et_po_data
+      FROM zpia_po_header AS h
+      INNER JOIN zpia_po_item AS i
+        ON h~ebeln = i~ebeln
+      LEFT OUTER JOIN zpia_vendor AS v
+        ON h~lifnr = v~lifnr
+      LEFT OUTER JOIN zpia_material AS m
+        ON i~matnr = m~matnr
+      WHERE h~ebeln IN it_ebeln.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_PIA_DATA_ACCESS->GET_STOCK_MOVEMENTS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_MATNR                       TYPE        TT_MATNR_RANGE
+* | [<---] ET_STOCK_DATA                  TYPE        TT_STOCK_DATA
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_stock_movements.
+    CLEAR et_stock_data.
+
+    " Fetch inventory stock data using classic Open SQL syntax
+    SELECT s~mblnr
+           s~mjahr
+           s~zeile
+           s~bwart
+           s~matnr
+           m~maktx
+           s~werks
+           s~menge
+           s~budat
+           s~shkzg
+      INTO TABLE et_stock_data
+      FROM zpia_stock_doc AS s
+      LEFT OUTER JOIN zpia_material AS m
+        ON s~matnr = m~matnr
+      WHERE s~matnr IN it_matnr.
+  ENDMETHOD.
+ENDCLASS.

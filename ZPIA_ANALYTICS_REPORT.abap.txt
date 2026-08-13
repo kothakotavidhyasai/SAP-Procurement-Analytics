@@ -1,0 +1,166 @@
+*&---------------------------------------------------------------------*
+*& Report ZPIA_ANALYTICS_REPORT
+*&---------------------------------------------------------------------*
+REPORT zpia_analytics_report.
+
+* Type Pools for ALV
+TYPE-POOLS: slis.
+
+* Tables for Selection Screen
+TABLES: zpia_po_header, zpia_stock_doc.
+
+* Object Reference for our Data Access Class
+DATA: go_data_access TYPE REF TO zcl_pia_data_access.
+
+* Internal Tables for Data Output
+DATA: gt_po_data    TYPE zcl_pia_data_access=>tt_po_data,
+      gt_stock_data TYPE zcl_pia_data_access=>tt_stock_data.
+
+* ALV Configuration Variables
+DATA: gt_fieldcat TYPE slis_t_fieldcat_alv,
+      gs_fieldcat TYPE slis_fieldcat_alv.
+
+*----------------------------------------------------------------------*
+* Selection Screen Design
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+  PARAMETERS: p_po  RADIOBUTTON GROUP g1 DEFAULT 'X' USER-COMMAND uc1,
+              p_stk RADIOBUTTON GROUP g1.
+SELECTION-SCREEN END OF BLOCK b1.
+
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE text-002.
+  SELECT-OPTIONS: s_ebeln FOR zpia_po_header-ebeln MODIF ID po,
+                  s_matnr FOR zpia_stock_doc-matnr MODIF ID stk.
+SELECTION-SCREEN END OF BLOCK b2.
+
+*----------------------------------------------------------------------*
+* UI Dynamics: Hide/Show fields based on Radio Button
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN OUTPUT.
+  LOOP AT SCREEN.
+    IF p_po = 'X' AND screen-group1 = 'STK'.
+      screen-active = 0.
+    ELSEIF p_stk = 'X' AND screen-group1 = 'PO'.
+      screen-active = 0.
+    ENDIF.
+    MODIFY SCREEN.
+  ENDLOOP.
+
+*----------------------------------------------------------------------*
+* Main Business Logic
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+  " Instantiate the Data Access Object
+  CREATE OBJECT go_data_access.
+
+  IF p_po = 'X'.
+    " Call method to fetch Procurement Data
+    CALL METHOD go_data_access->get_purchase_orders
+      EXPORTING
+        it_ebeln   = s_ebeln[]
+      IMPORTING
+        et_po_data = gt_po_data.
+  ELSEIF p_stk = 'X'.
+    " Call method to fetch Inventory Data
+    CALL METHOD go_data_access->get_stock_movements
+      EXPORTING
+        it_matnr      = s_matnr[]
+      IMPORTING
+        et_stock_data = gt_stock_data.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* Output Generation
+*----------------------------------------------------------------------*
+END-OF-SELECTION.
+  IF p_po = 'X'.
+    PERFORM display_po_alv.
+  ELSEIF p_stk = 'X'.
+    PERFORM display_stock_alv.
+  ENDIF.
+
+*----------------------------------------------------------------------*
+* ALV Subroutines
+*----------------------------------------------------------------------*
+FORM display_po_alv.
+  CLEAR: gt_fieldcat, gs_fieldcat.
+
+  " Build Field Catalog manually
+  gs_fieldcat-fieldname = 'EBELN'.
+  gs_fieldcat-seltext_m = 'PO Number'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'EBELP'.
+  gs_fieldcat-seltext_m = 'Item'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'BUKRS'.
+  gs_fieldcat-seltext_m = 'Company'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'NAME1'.
+  gs_fieldcat-seltext_m = 'Vendor Name'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'MAKTX'.
+  gs_fieldcat-seltext_m = 'Material Desc'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'MENGE'.
+  gs_fieldcat-seltext_m = 'Quantity'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'NETWR'.
+  gs_fieldcat-seltext_m = 'Total Value'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      it_fieldcat   = gt_fieldcat
+    TABLES
+      t_outtab      = gt_po_data
+    EXCEPTIONS
+      program_error = 1
+      OTHERS        = 2.
+ENDFORM.
+
+FORM display_stock_alv.
+  CLEAR: gt_fieldcat, gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'MBLNR'.
+  gs_fieldcat-seltext_m = 'Mat Doc No'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'BWART'.
+  gs_fieldcat-seltext_m = 'Mvt Type'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'MATNR'.
+  gs_fieldcat-seltext_m = 'Material No'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'MAKTX'.
+  gs_fieldcat-seltext_m = 'Material Desc'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'WERKS'.
+  gs_fieldcat-seltext_m = 'Plant'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'MENGE'.
+  gs_fieldcat-seltext_m = 'Quantity'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  gs_fieldcat-fieldname = 'SHKZG'.
+  gs_fieldcat-seltext_m = 'Debit/Credit'.
+  APPEND gs_fieldcat TO gt_fieldcat. CLEAR gs_fieldcat.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      it_fieldcat   = gt_fieldcat
+    TABLES
+      t_outtab      = gt_stock_data
+    EXCEPTIONS
+      program_error = 1
+      OTHERS        = 2.
+ENDFORM.
