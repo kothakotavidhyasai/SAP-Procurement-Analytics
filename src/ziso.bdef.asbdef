@@ -1,0 +1,84 @@
+managed implementation in class zbp_ziso unique;
+strict ( 2 );
+with draft;
+
+define behavior for ZISO alias SalesOrder
+persistent table zsoh
+draft table zsoh_d
+lock master total etag LastChangedAt
+authorization master ( instance )
+etag master LocalLastChangedAt
+{
+  create;
+  update;
+  delete;
+
+  draft action Edit;
+  draft action Activate optimized;
+  draft action Discard;
+  draft action Resume;
+  draft determine action Prepare
+  {
+    validation validateCustomer;
+    validation validateQuantity;
+    validation Item~validateItemQuantity;
+  }
+
+  association _Item { create; with draft; }
+
+  field ( readonly, numbering : managed )  SalesOrderID;
+  field ( readonly )                       CreatedBy, CreatedAt, LastChangedBy, LastChangedAt;
+
+  validation validateCustomer on save { create; field CustomerID; }
+  validation validateQuantity on save { create; update; field NetAmount; }
+
+  determination setInitialStatus on modify { create; }
+  determination calculateNetAmount on save { create; update; }
+
+  mapping for zsoh
+  {
+    SalesOrderID   = salesorderid;
+    SalesOrderNo   = salesorderno;
+    CustomerID     = customerid;
+    OrderDate      = orderdate;
+    NetAmount      = netamount;
+    CurrencyCode   = currencycode;
+    Status         = status;
+    CreatedBy      = createdby;
+    CreatedAt      = createdat;
+    LastChangedBy  = lastchangedby;
+    LastChangedAt  = lastchangedat;
+    LocalLastChangedAt = locallastchangedat;
+  }
+}
+
+define behavior for ZISOI alias Item
+persistent table zsoi
+draft table zsoi_d
+lock dependent by _SalesOrder
+authorization dependent by _SalesOrder
+etag master LocalLastChangedAt
+{
+  update;
+  delete;
+
+  association _SalesOrder { with draft; }
+
+  field ( readonly, numbering : managed )  ItemID;
+  field ( readonly )                       SalesOrderID;
+
+  validation validateItemQuantity on save { create; update; field Quantity; }
+
+  mapping for zsoi
+  {
+    ItemID         = itemid;
+    SalesOrderID   = salesorderid;
+    ItemNo         = itemno;
+    MaterialID     = materialid;
+    Quantity       = quantity;
+    Unit           = unit;
+    NetPrice       = netprice;
+    CurrencyCode   = currencycode;
+    LocalLastChangedAt = locallastchangedat;
+  }
+}

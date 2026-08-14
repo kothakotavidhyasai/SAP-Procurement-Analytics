@@ -1,0 +1,5 @@
+@EndUserText.label: 'Building the Service Definition'
+define service ZSD_SALESORDER {
+  expose ZCSO  as SalesOrder;
+  expose ZCSOI as SalesOrderItem;
+}
